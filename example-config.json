@@ -1,0 +1,6 @@
+{
+    "secrets": [
+        { "name": "testsecret", "value": "testvalue" }
+    ]
+}
+
