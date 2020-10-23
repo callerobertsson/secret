@@ -12,6 +12,7 @@ Options:
 
 * `-f <CONFIG_FILE>` will use `CONFIG_FILE` instead of the default
   `~/.secret.json`.
+* `-l` list keys in the config file
 * `-v` verbose mode
 * `-h` flag will print usage information and exit.
 
