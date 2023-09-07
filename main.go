@@ -113,7 +113,7 @@ func list(s *secrets.Secrets) {
 	verbosef("Secrets keys:\n")
 
 	for i := 0; i < len(s.Secrets); i++ {
-		fmt.Printf("  %v\t\t%v\n", s.Secrets[i].Key, s.Secrets[i].Value)
+		fmt.Printf("  %v\n", s.Secrets[i].Key)
 	}
 }
 
