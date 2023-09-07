@@ -2,33 +2,24 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/user"
+
+	"github.com/callerobertsson/secret/secrets"
 )
 
-const defaultConfigFileName = ".secret.json"
+const rootSecretsFilePath = "/etc/secrets/config.json"
+const userSecretsFileName = ".secrets.json"
 
-// Config holds the secret fetcher command configuration
-type Config struct {
-	Secrets        []Secret `json:"secrets"`
-	configFilePath string
-}
-
-// Secret is a tuple containing a key and a value
-type Secret struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
+var userSecretsFilePath = ""
 
 var (
-	helpFlag         bool
-	listFlag         bool
-	verboseFlag      bool
-	configFileOption string
+	helpFlag    bool
+	listFlag    bool
+	verboseFlag bool
+	fileOption  string
 )
 
 func init() {
@@ -37,12 +28,13 @@ func init() {
 		errorf("could not get current user")
 	}
 
-	defaultConfig := fmt.Sprintf("%v%c%v", u.HomeDir, os.PathSeparator, defaultConfigFileName)
 	flag.BoolVar(&helpFlag, "h", false, "Show usage information")
 	flag.BoolVar(&listFlag, "l", false, "List available keys")
 	flag.BoolVar(&verboseFlag, "v", false, "Print verbose info")
-	flag.StringVar(&configFileOption, "f", defaultConfig, "Config file path")
+	flag.StringVar(&fileOption, "f", "", "Secrets file path")
 	flag.Parse()
+
+	userSecretsFilePath = fmt.Sprintf("%v%c%v", u.HomeDir, os.PathSeparator, userSecretsFileName)
 }
 
 func main() {
@@ -52,16 +44,14 @@ func main() {
 		os.Exit(0)
 	}
 
-	verbosef("using config file %q\n", configFileOption)
-
-	config, err := readConfigFile(configFileOption)
+	cfg, err := readSecretsFiles()
 	if err != nil {
-		errorf("error reading config file %q: %v\n", configFileOption, err)
+		errorf("%v", err)
+		os.Exit(1)
 	}
-	config.configFilePath = configFileOption
 
 	if listFlag {
-		list(config)
+		list(cfg)
 		os.Exit(0)
 	}
 
@@ -72,9 +62,9 @@ func main() {
 
 	key := flag.Arg(0)
 
-	for i := 0; i < len(config.Secrets); i++ {
-		if config.Secrets[i].Key == key {
-			fmt.Printf("%v\n", config.Secrets[i].Value)
+	for i := 0; i < len(cfg.Secrets); i++ {
+		if cfg.Secrets[i].Key == key {
+			fmt.Printf("%v\n", cfg.Secrets[i].Value)
 			os.Exit(0)
 		}
 	}
@@ -82,35 +72,65 @@ func main() {
 	errorf("unknown key: %v\n", key)
 }
 
-func readConfigFile(f string) (c *Config, err error) {
-	bs, err := ioutil.ReadFile(f)
+func readSecretsFiles() (*secrets.Secrets, error) {
+
+	verbosef("reading root secrets file (if present) %q\n", rootSecretsFilePath)
+
+	// TODO: add option to igore global secrets
+	rootSecrets, err := secrets.NewFromPath(rootSecretsFilePath)
 	if err != nil {
-		return nil, err
+		verbosef("could not get root secrets: %v\n", err)
+		rootSecrets = &secrets.Secrets{}
 	}
 
-	c = &Config{}
-	err = json.Unmarshal(bs, c)
+	secretsFilePath := fileOption
+	if secretsFilePath == "" {
+		secretsFilePath = userSecretsFilePath
+	}
 
-	return c, err
+	verbosef("reading user secrets %q\n", secretsFilePath)
+
+	userSecrets, err := secrets.NewFromPath(secretsFilePath)
+	if err != nil {
+		verbosef("could not get secrets from %q: %v\n", secretsFilePath, err)
+		userSecrets = &secrets.Secrets{}
+	}
+
+	secrets := secrets.Secrets{}
+	secrets.Merge(rootSecrets)
+	secrets.Merge(userSecrets)
+
+	return &secrets, nil
 }
 
-func list(config *Config) {
-	verbosef("Listing keys in config %v\n", config.configFilePath)
+func list(s *secrets.Secrets) {
 
-	for i := 0; i < len(config.Secrets); i++ {
-		fmt.Printf("  %v\n", config.Secrets[i].Key)
+	if len(s.Secrets) < 1 {
+		verbosef("No secrets\n")
+		return
+	}
+
+	verbosef("Secrets keys:\n")
+
+	for i := 0; i < len(s.Secrets); i++ {
+		fmt.Printf("  %v\t\t%v\n", s.Secrets[i].Key, s.Secrets[i].Value)
 	}
 }
 
 func verbosef(format string, a ...interface{}) {
+
 	if verboseFlag {
 		fmt.Printf(format, a...)
 	}
+
 }
 
 func errorf(format string, a ...interface{}) {
+
 	fmt.Fprintf(os.Stderr, format, a...)
+
 	os.Exit(1)
+
 }
 
 func usage() {
