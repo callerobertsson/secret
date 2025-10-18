@@ -1,6 +1,9 @@
 {
     "secrets": [
-        { "name": "testsecret", "value": "testvalue" }
+        { "key": "test",      "value": "testvalue" },
+        { "key": "testplain", "value": "plainvalue", "enc": "plain" },
+        { "key": "testfail",  "value": "failvalue",  "enc": "dnc" },
+        { "key": "testrot13", "value": "ebg13inyhr", "enc": "rot13" }
     ]
 }
 
