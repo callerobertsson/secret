@@ -2,6 +2,8 @@
 
 _A simple command for extracting secret values from a JSON file_
 
+NOTE: Moved to https://codeberg.org/robcon/secret
+
 ## Synopsis
 
     secret [-h] [-f <CONFIG_FILE>] [<KEY>]
